@@ -9,7 +9,7 @@
 body{
 margin:0;
 font-family:Inter,sans-serif;
-background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+background:radial-gradient(circle at top,#7c3aed,#1e1b4b 60%,#020617);
 min-height:100vh;
 display:flex;
 align-items:center;
@@ -18,41 +18,58 @@ color:#fff
 }
 .card{
 background:rgba(255,255,255,.08);
-backdrop-filter:blur(20px);
-border-radius:24px;
-padding:40px;
-width:420px;
-box-shadow:0 30px 80px rgba(0,0,0,.5);
-text-align:center
+backdrop-filter:blur(25px);
+border-radius:28px;
+padding:42px;
+width:440px;
+box-shadow:0 40px 120px rgba(124,58,237,.5);
+text-align:center;
+border:1px solid rgba(255,255,255,.12)
 }
-h1{margin:10px 0}
+h1{
+margin:0;
+font-size:32px;
+background:linear-gradient(90deg,#c084fc,#818cf8);
+-webkit-background-clip:text;
+color:transparent
+}
+p{opacity:.8}
 .drop{
-border:2px dashed rgba(255,255,255,.3);
-border-radius:18px;
-padding:40px 20px;
+margin-top:20px;
+border:2px dashed rgba(192,132,252,.5);
+border-radius:22px;
+padding:46px 20px;
 cursor:pointer;
-transition:.3s
+transition:.25s
 }
-.drop:hover{background:rgba(255,255,255,.1)}
+.drop.active{
+background:rgba(192,132,252,.15);
+border-color:#c084fc
+}
 input{display:none}
 button{
 margin-top:20px;
 width:100%;
-padding:14px;
-border-radius:14px;
+padding:16px;
+border-radius:18px;
 border:none;
-background:linear-gradient(135deg,#00f2fe,#4facfe);
-color:#000;
+background:linear-gradient(135deg,#a855f7,#6366f1);
+color:#fff;
 font-size:16px;
 font-weight:600;
 cursor:pointer
 }
-.result{margin-top:20px;word-break:break-all}
-a{color:#7dd3fc}
+.status{
+margin-top:16px;
+font-size:14px;
+opacity:.9
+}
+a{color:#c084fc}
 img.preview{
 max-width:100%;
-border-radius:14px;
-margin-top:20px
+border-radius:18px;
+margin-top:22px;
+box-shadow:0 20px 60px rgba(0,0,0,.6)
 }
 </style>
 </head>
@@ -60,30 +77,77 @@ margin-top:20px
 
 <div class="card">
 <h1>SnapLink</h1>
-<p>Загрузи картинку — получи ссылку</p>
+<p>Ctrl+V • Drag & Drop • Мгновенная ссылка</p>
 
-<label class="drop">
+<label class="drop" id="drop">
 <input type="file" id="file" accept="image/*">
-Нажми или перетащи картинку
+Нажми, перетащи или вставь изображение
 </label>
 
-<button onclick="upload()">Загрузить</button>
+<button onclick="pick()">Выбрать файл</button>
 
-<div class="result" id="result"></div>
+<div class="status" id="status"></div>
 <img id="preview" class="preview">
+
 </div>
 
 <script>
-async function upload(){
-const file=document.getElementById("file").files[0];
-if(!file)return alert("Выбери картинку");
-const form=new FormData();
-form.append("image",file);
-const res=await fetch("/upload",{method:"POST",body:form});
-const data=await res.json();
-document.getElementById("result").innerHTML=
-'Ссылка:<br><a target="_blank" href="'+data.url+'">'+data.url+'</a>';
-document.getElementById("preview").src=data.url;
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+const status = document.getElementById("status");
+const preview = document.getElementById("preview");
+
+function pick(){
+  fileInput.click();
+}
+
+fileInput.onchange = e => send(e.target.files[0]);
+
+// ✅ Ctrl+V (ИСПРАВЛЕНО)
+document.addEventListener("paste", e => {
+  for (const item of e.clipboardData.items) {
+    if (item.type.startsWith("image/")) {
+      send(item.getAsFile());
+      break;
+    }
+  }
+});
+
+// Drag & Drop
+drop.addEventListener("dragover", e => {
+  e.preventDefault();
+  drop.classList.add("active");
+});
+drop.addEventListener("dragleave", () => {
+  drop.classList.remove("active");
+});
+drop.addEventListener("drop", e => {
+  e.preventDefault();
+  drop.classList.remove("active");
+  send(e.dataTransfer.files[0]);
+});
+
+async function send(file){
+  if (!file || !file.type.startsWith("image/")) {
+    alert("Только изображения");
+    return;
+  }
+
+  status.textContent = "⏳ Загружаем изображение...";
+  preview.src = "";
+
+  const form = new FormData();
+  form.append("image", file);
+
+  try {
+    const res = await fetch("/upload", { method:"POST", body:form });
+    const data = await res.json();
+
+    status.innerHTML = `✅ Загружено: <a href="${data.url}" target="_blank">${data.url}</a>`;
+    preview.src = data.url;
+  } catch {
+    status.textContent = "❌ Ошибка загрузки";
+  }
 }
 </script>
 
